@@ -22,92 +22,163 @@ const initialFriends = [
 ];
 
 export default function App() {
-  return (
-    <div className="app">
-      <FriendsList />
-      <FormSplitBill />
-    </div>
-  );
-}
-
-
-function Button({ children, onClick }) {
-  return <button onClick={onClick} className="button">{children}</button>;
-}
-
-
-function FriendsList() {
+  const [selectedFriend, setSelectedFriend] = useState(null);
   const [showAddFriend, setShowAddFriend] = useState(false);
+  const [friends, setFriends] = useState(initialFriends);
 
-  function handleAddFriend() {
+  function handleShowAddFriend() {
     setShowAddFriend((show) => !show);
   }
-  return (
-    <div className="sidebar">
-      {initialFriends.map((friend) => (
-        <Friend
-          name={friend.name}
-          image={friend.image}
-          balance={friend.balance}
-          key={friend.id}
-        />
-      ))}
-      {showAddFriend && <FormAddFriend />}
-      <Button onClick={handleAddFriend}>{showAddFriend ? 'Close' : 'Add friend'}</Button>
 
-      {/* <Button>Close</Button> */}
+  function handleAddFriend(friend) {
+    setFriends((friends) => [...friends, friend]);
+    setShowAddFriend(false);
+  }
+
+  function handleSelection(friend) {
+    setSelectedFriend((cur) => (cur?.id === friend.id ? null : friend));
+    setShowAddFriend(false);
+  }
+
+  return (
+    <div className="app">
+      <div className="sidebar">
+        <FriendsList
+          friends={friends}
+          onSelection={handleSelection}
+          selectedFriend={selectedFriend}
+        />
+
+        {showAddFriend && <FormAddFriend onAddFriend={handleAddFriend} />}
+
+        <Button onClick={handleShowAddFriend}>
+          {showAddFriend ? "Close" : "Add friend"}
+        </Button>
+      </div>
+      {selectedFriend && <FormSplitBill selectedFriend={selectedFriend} />}
     </div>
   );
 }
 
+function Button({ children, onClick }) {
+  return (
+    <button onClick={onClick} className="button">
+      {children}
+    </button>
+  );
+}
 
-function Friend({ name, image, balance, key }) {
+function FriendsList({ onSelection, friends, selectedFriend }) {
   return (
     <ul>
-      <li key={key}>
-        <img src={image} alt="img" />
-        <h3>{name}</h3>
-        <p className={balance < 0 ? "red" : balance === 0 ? null : "green"}>
-          {balance < 0
-            ? `You owe ${name} ${Math.abs(balance)}`
-            : balance === 0
-            ? `You and ${name} are even`
-            : `${name} owes you ${balance}$`}
-        </p>
-        <Button>Select</Button>
-      </li>
+      {friends.map((friend) => (
+        <Friend
+          friend={friend}
+          key={friend.id}
+          onSelection={onSelection}
+          selectedFriend={selectedFriend}
+        />
+      ))}
     </ul>
   );
 }
 
-
-function FormAddFriend() {
+function Friend({ friend, onSelection, selectedFriend }) {
+  const isSelected = selectedFriend?.id === friend.id;
   return (
-    <form className="form-add-friend">
+    <li className={isSelected ? "selected" : ""}>
+      <img src={friend.image} alt="img" />
+      <h3>{friend.name}</h3>
+      <p
+        className={
+          friend.balance < 0 ? "red" : friend.balance === 0 ? null : "green"
+        }>
+        {friend.balance < 0
+          ? `You owe ${friend.name} ${Math.abs(friend.balance)}`
+          : friend.balance === 0
+          ? `You and ${friend.name} are even`
+          : `${friend.name} owes you ${friend.balance}$`}
+      </p>
+      <Button onClick={() => onSelection(friend)}>
+        {isSelected ? "Close" : "Select"}
+      </Button>
+    </li>
+  );
+}
+
+function FormAddFriend({ onAddFriend }) {
+  const [name, setName] = useState("");
+  const [image, setImage] = useState("https://i.pravatar.cc/48");
+
+  const id = crypto.randomUUID();
+
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    if (!name || !image) return;
+    const newFriend = {
+      id,
+      name,
+      image: `${image}?=${id}`,
+      balance: 0,
+    };
+
+    onAddFriend(newFriend);
+    setName("");
+    setImage("https://i.pravatar.cc/48");
+  }
+  return (
+    <form className="form-add-friend" onSubmit={handleSubmit}>
       <label>🧑Friend Name</label>
-      <input type="text" />
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+      />
       <label>🔗Image URL</label>
-      <input type="url" />
+      <input
+        type="url"
+        value={image}
+        onChange={(e) => setImage(e.target.value)}
+      />
       <Button>Add</Button>
     </form>
   );
 }
 
+function FormSplitBill({ selectedFriend }) {
+  const [bill, setBill] = useState("");
+  const [paidByUser, setPaidByUser] = useState("");
+  const billi = bill ? bill - paidByUser : "";
+  const [whoIsPayingBill, setWhoIsPayingBill] = useState("user");
 
-function FormSplitBill() {
   return (
     <form className="form-split-bill">
-      <h2>Split a bill with clark</h2>
+      <h2>Split a bill with {selectedFriend.name}</h2>
       <label>💰Bill value</label>
-      <input type="text" />
+      <input
+        type="text"
+        value={bill}
+        onChange={(e) => setBill(Number(e.target.value))}
+      />
       <label>💵Your Expense</label>
-      <input type="text" />
-      <label>🧑Clark's Expense:</label>
-      <input type="text" disabled />
+      <input
+        type="text"
+        value={paidByUser}
+        onChange={(e) =>
+          setPaidByUser(
+            Number(e.target.value) > bill ? paidByUser : Number(e.target.value)
+          )
+        }
+      />
+      <label>🧑{selectedFriend.name}'s Expense:</label>
+      <input type="text" disabled value={billi} />
       <label>🤑Who is paying the bill?:</label>
-      <select>
-        <option value="">You</option>
-        <option value="">Anthony</option>
+      <select
+        value={whoIsPayingBill}
+        onChange={(e) => setWhoIsPayingBill(e.target.value)}>
+        <option value="user">You</option>
+        <option value="friend">{selectedFriend.name}</option>
       </select>
       <Button>Split Bill</Button>
     </form>
